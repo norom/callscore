@@ -21,6 +21,8 @@ export function createUI(handlers) {
     setsB: el("setsB"),
     gamesA: el("gamesA"),
     gamesB: el("gamesB"),
+    serveA: el("serveA"),
+    serveB: el("serveB"),
     badge: el("netBadge"),
     btnA: el("btnA"),
     btnB: el("btnB"),
@@ -66,6 +68,9 @@ export function createUI(handlers) {
       nodes.gamesA.textContent = view.stats.games.A;
       nodes.gamesB.textContent = view.stats.games.B;
     }
+
+    nodes.serveA.hidden = view.server !== "A";
+    nodes.serveB.hidden = view.server !== "B";
 
     nodes.sideA.classList.toggle("side--advantage", view.advantage === "A");
     nodes.sideB.classList.toggle("side--advantage", view.advantage === "B");
@@ -125,10 +130,33 @@ export function createUI(handlers) {
     );
   }
 
+  let badgeText = "";
+
   function setBadge(text) {
+    badgeText = text;
+    if (nodes.badge.hasAttribute("data-pending")) return;
+
     nodes.badge.textContent = text;
     if (text) nodes.badge.setAttribute("data-shown", "");
     else nodes.badge.removeAttribute("data-shown");
+  }
+
+  /**
+   * Shows a spoken command as it arrives, while the score itself stays put.
+   * The score moving word by word would read as the number changing by itself;
+   * it moves once, when the phrase is complete.
+   */
+  function showHeard(text) {
+    nodes.badge.textContent = text;
+    nodes.badge.setAttribute("data-shown", "");
+    nodes.badge.setAttribute("data-pending", "yes");
+  }
+
+  function clearHeard() {
+    if (!nodes.badge.hasAttribute("data-pending")) return;
+
+    nodes.badge.removeAttribute("data-pending");
+    setBadge(badgeText);
   }
 
   /** Brief lift of a whole field — the at-distance confirmation that a press landed. */
@@ -163,6 +191,15 @@ export function createUI(handlers) {
       : { kind: "tennis" };
   }
 
+  let chosenServer = "A";
+
+  function renderFirstServer(team) {
+    chosenServer = team;
+    for (const option of document.querySelectorAll(".serve-option")) {
+      option.toggleAttribute("data-current", option.dataset.team === team);
+    }
+  }
+
   /** Marks what is being played, so the sheet also answers "which format is this?". */
   function renderFormats(format) {
     for (const row of document.querySelectorAll(".format-row")) {
@@ -177,8 +214,26 @@ export function createUI(handlers) {
 
   // ------------------------------------------------------ voice diagnostics
 
-  function showVoiceStatus(text) {
-    nodes.voiceStatus.textContent = text;
+  const MIC_NAMES = { earbuds: "Earbuds", phone: "Phone microphone", none: "No microphone" };
+
+  /**
+   * Which microphone is really in use, as the recorder reports it — not which
+   * one was asked for. The phone's own mic courtside hears the whole court, so
+   * a silent fallback to it would look like bad recognition, not bad routing.
+   */
+  function showVoiceStatus(status) {
+    const mic = status.mic in MIC_NAMES ? status.mic : "none";
+    nodes.voiceBtn.setAttribute("data-mic", status.state === "listening" ? mic : "none");
+
+    const lines = [
+      `${status.state}${status.message ? ` — ${status.message}` : ""}`,
+      `${MIC_NAMES[mic]}${status.device ? `: ${status.device}` : ""}`,
+    ];
+    if (status.grammar) lines.push(`grammar: ${status.grammar}`);
+    if (Number.isFinite(status.rtf)) lines.push(`decode load: ${Math.round(status.rtf * 100)}%`);
+    if (Number.isFinite(status.battery)) lines.push(`battery: ${status.battery}%`);
+
+    nodes.voiceStatus.textContent = lines.join("\n");
   }
 
   /**
@@ -239,8 +294,12 @@ export function createUI(handlers) {
   for (const row of document.querySelectorAll(".format-row")) {
     row.addEventListener("click", () => {
       closeSheet(nodes.confirmSheet);
-      handlers.onNewMatch(formatOf(row));
+      handlers.onNewMatch(formatOf(row), chosenServer);
     });
+  }
+
+  for (const option of document.querySelectorAll(".serve-option")) {
+    option.addEventListener("click", () => renderFirstServer(option.dataset.team));
   }
 
   nodes.voiceBtn.addEventListener("click", () => openSheet(nodes.voiceSheet));
@@ -260,6 +319,9 @@ export function createUI(handlers) {
     render,
     flash,
     renderFormats,
+    renderFirstServer,
+    showHeard,
+    clearHeard,
     showVoiceStatus,
     logVoice,
   };

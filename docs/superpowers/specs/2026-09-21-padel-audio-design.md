@@ -40,7 +40,7 @@ earbud mic ─▶ AudioRouter ─▶ VoiceEngine (AudioRecord 16 kHz → Vosk ph
    voice-parse ─▶ command ─▶ reconcile ─▶ session (points + undo history) ─▶ storage + render
         │                        │                         ▲
         │                        └─▶ PadelNative.tone(ok|fail|confirm)
-        └ confidence gate                touch +A / +B / Undo ─┘
+        └ strict span rule                touch +A / +B / Undo ─┘
 ```
 
 ### Reused from d10
@@ -56,13 +56,14 @@ earbud mic ─▶ AudioRouter ─▶ VoiceEngine (AudioRecord 16 kHz → Vosk ph
   tie-break flip when `floor((p+1)/2)` is odd (p = tie-break points played). The tie-break
   counts as one game, which yields the correct next-set server for free.
 - **`src/grammar.js`** — `GRAMMARS = { game: string[], tiebreak: string[] }`, the single
-  source of truth. **Whole phrases, not a bag of words** («счёт ноль пятнадцать»,
-  «счёт ровно», … ~30 + `"[unk]"`; tie-break: «счёт N M» for 0–12 + гейм/отмена), so the
-  wake word and word order are structural. JS sends the active list to native.
-  Spelling must be **`счёт` with ё** — `счет` is not in the model vocabulary and would be
-  silently dropped. Include both `все` and `всё`; parser normalises ё→е.
+  source of truth: the command phrases, **plus ~140 decoy filler words**, plus `"[unk]"`.
+  JS sends the active list to native. Vosk treats the list as a **bag of words — it does
+  not enforce phrase structure or word order** (measured, see *Desktop probe* below), so
+  all structure is enforced by `voice-parse.js`. The decoys give chatter somewhere to go
+  other than score words. Spelling must be **`счёт` with ё** — `счет` is not in the model
+  vocabulary and would be silently dropped. Include both `все` and `всё`; parser normalises ё→е.
 - **`src/voice-parse.js`**
-  - `extractSpan(finalPayload) → {tokens, minConf, wakeConf, durationMs} | null` — last «счёт …» span; any `[unk]` inside rejects
+  - `extractSpan(finalPayload) → {tokens, before, after, startMs, endMs} | null` — last «счёт» + complete phrase; a decoy or `[unk]` inside rejects
   - `parseCommand(tokens, {tieBreak}) →` `{kind:"score",server,receiver}` («ноль пятнадцать», «по нулям», «по пятнадцати», «тридцать все») · `{kind:"deuce"}` («ровно», «сорок сорок») · `{kind:"adv",who}` («больше»/«меньше») · `{kind:"game"}` · `{kind:"undo"}` («отмена») · `null`
 - **`src/reconcile.js`** — `reconcile(points, firstServer, command, {maxForward=2}) → {points, tier:"apply"|"noop"|"confirm"} | {error:"ambiguous"|"impossible"|"over"}`
   - **Search short futures with the real engine** (changed from my draft's "always
@@ -86,7 +87,7 @@ earbud mic ─▶ AudioRouter ─▶ VoiceEngine (AudioRecord 16 kHz → Vosk ph
 
 ### DOM layer
 - **`src/voice.js`** — `createVoice({native, now, getSession, commit, ui, config})` →
-  `{partial, final, status}` installed as `window.padelVoice`. Owns the confidence gate,
+  `{partial, final, status}` installed as `window.padelVoice`. Owns the
   confirm/dedupe state, event log, tone requests, grammar switch on tie-break enter/leave.
   Injected `native`/`now` make it node-testable.
 - **`ui.js` / `index.html`** — serve marker on the serving half · mic indicator showing the
@@ -95,18 +96,46 @@ earbud mic ─▶ AudioRouter ─▶ VoiceEngine (AudioRecord 16 kHz → Vosk ph
   sheet with copyable **event log** (time, transcript, per-word conf, RMS, action).
 
 ### False-positive policy (v1)
-1. Phrase grammar ⇒ whole command in one utterance; only the last «счёт …» span counts; `[unk]` inside rejects.
-2. Min word confidence in the span ≥ **0.75** (one constant, tuned from logs). If «счёт» itself is below threshold → ignore **silently** (log only), otherwise crowd noise would buzz constantly.
-3. Tier 1 apply now: reachable in ≤2 points, «гейм», «отмена». Tier 2 confirm tone, repeat within 8 s applies. Tier 3 fail buzz: unparseable / illegal / ambiguous / match over.
-4. Repeated «гейм»/«отмена» within 8 s of being applied → no-op + ok tone (no accidental double undo).
-5. Log per-utterance RMS and word durations from day one; enforce only after on-court data (near-field loudness of the wearer's own voice is the likely best discriminator — to be checked).
+1. A command is «счёт» **immediately followed by one complete phrase**, found anywhere in
+   an utterance; the last such span wins. A decoy word or `[unk]` inside the span rejects it.
+2. **No confidence gate.** In grammar mode Vosk reports conf = 1.0 for everything,
+   including chatter force-aligned to score words (measured), so it carries no signal.
+3. Tones: *ok* = applied · *confirm* = legal but implausible, repeat within 8 s to apply ·
+   *fail* = a complete command was understood but cannot be applied (illegal / ambiguous /
+   match over). **«счёт» followed by anything unparseable is silent** (logged only) —
+   chatter says «какой счёт…» too often for that to buzz.
+4. Tier 1 apply now: reachable in ≤2 points, «гейм», «отмена». Tier 2 confirm. Tier 3 fail.
+5. Repeated «гейм»/«отмена» within 8 s of being applied → no-op + ok tone (no accidental double undo).
+6. Log per-utterance RMS, word start/end times and the words either side of the span from
+   day one; enforce only after on-court data. Candidates: near-field loudness of the
+   wearer's own voice; "command embedded in running speech" (no pause either side).
+
+### Desktop probe (2026-09-21) — what was measured before building
+Same model (`vosk-model-small-ru-0.22`) on Linux, Google-TTS Russian speech, babble made of
+16 chatter sentences deliberately seeded with score words («сорок минут», «ноль шансов»,
+«какой счёт»), mixed at the *same kind of loudness* as the voice — far harsher than an
+earbud mic, where the wearer is near-field. Synthetic speech, so treat as directional.
+
+| Grammar | Rule | Recall clean / 10 dB / 5 dB / 0 dB | False commands in 103 s chatter |
+| --- | --- | --- | --- |
+| free-form (no grammar) | text contains command | 7 / 3 / 1 / 0 | — |
+| commands only | «счёт»+phrase anywhere | 10 / 9 / 6 / 3 | 6 |
+| commands + decoys | «счёт»+phrase anywhere | **10 / 9 / 6 / 3** | **1** |
+| commands + decoys | command is the whole utterance | 10 / 5 / 1 / 1 | 0 |
+
+- Closed vocabulary is decisively better than free-form in noise — the approach holds.
+- «пятнадцать счёт ноль» and the incomplete «счёт ноль» decode verbatim: **no phrase
+  structure**. «хороший удар отлично сыграли…» decoded as «отмена сорок [unk]» at conf 1.0.
+- Decoys cost no recall and cut false commands 6 → 1. Whole-utterance matching removes the
+  last one but halves recall in continuous babble, so it is not the v1 rule.
+- Free-form even mishears clean commands («гейм» → «не им», «ровно» → «ровная»).
 
 Known limit, no v1 fix: in a tie-break at 0-0 both «один ноль» and «ноль один» are plausible, so a wrong-order call silently scores the wrong team. Touch/«отмена» recover.
 
 ### Kotlin host (`android/app/src/main/java/com/norom/padelaudio/`)
 - **`MainActivity.kt`** — trimmed d10 host; permission flow; start capture in `onStart`, stop in `onStop` (not `onPause`, which fires for dialogs); always clear the communication device and restore `MODE_NORMAL` on stop; `volumeControlStream = STREAM_VOICE_CALL`. Activity-bound — no foreground service (screen stays on, app stays in front).
 - **`AudioRouter.kt`** — strict order: `MODE_IN_COMMUNICATION` → `setCommunicationDevice` (priority `TYPE_BLE_HEADSET`, `TYPE_BLUETOOTH_SCO`) → wait for `OnCommunicationDeviceChangedListener` (≤5 s) → only then create `AudioRecord` + `setPreferredDevice`. Ground truth is `AudioRecord.getRoutedDevice()`. Watchdog every 5 s and on routing events: re-assert device; restart the record after >3 s of all-zero samples. Fallback: phone mic.
-- **`VoiceEngine.kt`** — `StorageService.unpack` model once (needs a `uuid` file in the asset dir); capture thread, always 16 kHz mono PCM16 (the model cannot take 8 kHz), source `VOICE_COMMUNICATION` (compare with `VOICE_RECOGNITION` in the spike), buffer ≥1 s; `Recognizer` with `setWords(true)`, `maxAlternatives` left at 0 (otherwise per-word conf disappears); grammar swap via `recognizer.setGrammar(json)` on the capture thread — no recreation. Never stop the record to pause; discard buffers instead (an idle mode owner loses the mode).
+- **`VoiceEngine.kt`** — `StorageService.unpack` model once (needs a `uuid` file in the asset dir); capture thread, always 16 kHz mono PCM16 (the model cannot take 8 kHz), source `VOICE_COMMUNICATION` (compare with `VOICE_RECOGNITION` in the spike), buffer ≥1 s; `Recognizer` with `setWords(true)` for word timings; grammar swap via `recognizer.setGrammar(json)` on the capture thread — no recreation. Never stop the record to pause; discard buffers instead (an idle mode owner loses the mode).
 - **`Tones.kt`** — `AudioTrack` with `USAGE_VOICE_COMMUNICATION` (media usage is unreliable while SCO is up); 400–2000 Hz, distinguished by **pattern** not low pitch (open-ear buds have little bass). Gate capture for tone length + 300 ms, then `recognizer.reset()` — prevents a tone → false command → tone loop.
 
 ### Bridge contract
@@ -129,7 +158,7 @@ Known limit, no v1 fix: in a tie-break at 0-0 both «один ноль» and «�
 3. **M3 Serve tracking** — `serve.js`, first-server picker, serve marker. *(M3–M4 are pure node work and can proceed while M2 is tested on court.)*
 4. **M4 Core by TDD** — `grammar.js`, `voice-parse.js`, `reconcile.js`, `session.js`.
 5. **M5 Wire-up** — `voice.js`, tones, confirm/dedupe, tie-break grammar switch.
-6. **M6 Tuning** from the event log after real matches: confidence threshold, RMS gate, forced-final on a stable partial only if finals arrive >1.5 s late.
+6. **M6 Tuning** from the event log after real matches: RMS gate, embedded-in-speech rule, forced-final on a stable partial only if finals arrive >1.5 s late.
 
 If M2 fails go/no-go, stop and revisit the recognition approach before M5 — M1, M3, M4 remain valid for any recogniser because the seam is plain text.
 
@@ -140,6 +169,6 @@ If M2 fails go/no-go, stop and revisit the recognition approach before M5 — M1
   - `voice-parse.test.js` — every `GRAMMARS` phrase parses; ё/е; «по нулям/пятнадцати/тридцати»; «сорок сорок» = deuce; numerals only in tie-break; last-span rule; `[unk]` rejects; incomplete rejects
   - `reconcile.test.js` — each prototyped case above; deuce ambiguity; «гейм» at deuce and in tie-break; confirm-tier rebuild leaves games/sets unchanged; match over
   - `session.test.js` — one undo reverts a multi-point voice change; empty-history fallback; bound
-  - `voice.test.js` (fake `native`/`now`) — confidence gate; silent ignore of weak «счёт»; 8 s dedupe; confirm by repeat and expiry; correct tone per outcome; `setGrammar` on tie-break enter/leave
+  - `voice.test.js` (fake `native`/`now`) — silent ignore of «счёт» + garbage; 8 s dedupe; confirm by repeat and expiry; correct tone per outcome; `setGrammar` on tie-break enter/leave
 - `tools/fetch-model.sh && cd android && ./gradlew assembleDebug`; APK ≈ 58 MB and `unzip -l` lists `assets/model-ru/uuid`.
 - On-device: both permission prompts · mic indicator goes loading → earbuds (product name) → phone when buds are removed → recovers on reconnect · live transcript visible · each tone audible in the ear, volume keys adjust it, a tone causes no false command · background/resume restores routing · incoming phone call and recovery · battery % over a 30-min soak · **a full set scored by voice only**, including a forgotten «гейм», a correction by repeat, and «отмена» · touch buttons work throughout.

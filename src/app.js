@@ -1,15 +1,20 @@
 /**
- * Wiring: touch input in, scoreboard out, everything persisted.
+ * Wiring: touch and voice in, scoreboard out, everything persisted.
  */
 
-import { derive, addPoint, undo, pointLabel } from "./match.js";
+import { derive, addPoint, pointLabel } from "./match.js";
 import { deriveAmericano, addAmericanoPoint, americanoLabel } from "./americano.js";
 import { createStore } from "./storage.js";
+import { createSession, commit, undo } from "./session.js";
+import { serverAt } from "./serve.js";
+import { createVoice } from "./voice.js";
 import { createUI } from "./ui.js";
 
 const store = createStore(window.localStorage);
 
-let { points, firstServer, format } = store.load();
+const saved = store.load();
+let format = saved.format;
+let session = createSession(saved);
 
 const ui = createUI({
   onPoint: score,
@@ -22,7 +27,7 @@ const ui = createUI({
 const isAmericano = () => format.kind === "americano";
 
 function currentState() {
-  return isAmericano() ? deriveAmericano(points, format.target) : derive(points);
+  return isAmericano() ? deriveAmericano(session.points, format.target) : derive(session.points);
 }
 
 /**
@@ -38,6 +43,7 @@ function view() {
       labels: { A: americanoLabel(state, "A"), B: americanoLabel(state, "B") },
       stats: null,
       advantage: null,
+      server: null,
       badge: state.draw ? "Draw" : state.winner ? `Team ${state.winner} wins` : "",
       status: state.matchOver ? "Round complete" : `Americano · to ${format.target}`,
       locked: state.matchOver,
@@ -48,6 +54,7 @@ function view() {
     labels: { A: pointLabel(state, "A"), B: pointLabel(state, "B") },
     stats: { sets: state.setsWon, games: state.games },
     advantage: state.advantage,
+    server: state.matchOver ? null : serverAt(session.points, session.firstServer),
     badge: state.matchOver
       ? `Team ${state.winner} wins`
       : state.tieBreak
@@ -64,37 +71,110 @@ function show() {
 
 // ------------------------------------------------------------------ actions
 
+/** The points `after` adds to `before`, or none if it is not a continuation. */
+function added(before, after) {
+  const continues = after.length > before.length && before.every((team, i) => team === after[i]);
+  return continues ? after.slice(before.length) : [];
+}
+
+/** Every change to the match, from a finger or a voice, goes through here. */
+function apply(next) {
+  if (next === session) return;
+
+  const before = session.points;
+  session = next;
+  store.savePoints(session.points);
+  show();
+
+  // Flash whoever just scored — the at-distance sign that it landed. An undo or
+  // a corrected game is not a point won, so it does not flash.
+  for (const team of new Set(added(before, session.points))) ui.flash(team);
+
+  // A point by touch can start or end a tie-break just as a spoken one can.
+  voice.sync();
+}
+
 function score(team) {
   const next = isAmericano()
-    ? addAmericanoPoint(points, team, format.target)
-    : addPoint(points, team);
+    ? addAmericanoPoint(session.points, team, format.target)
+    : addPoint(session.points, team);
 
-  if (next === points) return; // the match or round is already decided
-
-  points = next;
-  store.savePoints(points);
-  show();
-  ui.flash(team);
+  apply(commit(session, next));
 }
 
 function undoPoint() {
-  if (points.length === 0) return;
-
-  points = undo(points);
-  store.savePoints(points);
-  show();
+  apply(undo(session));
 }
 
-function newMatch(chosen) {
+function newMatch(chosen, firstServer) {
   format = chosen;
-  points = [];
+  session = createSession({ points: [], firstServer });
 
   store.saveFormat(format);
   store.startMatch(firstServer);
 
   ui.renderFormats(format);
+  syncVoiceEnabled();
   show();
+  voice.sync();
 }
+
+// -------------------------------------------------------------------- voice
+
+/**
+ * The native side, when there is one. In a browser tab there is no recogniser,
+ * and the scoreboard is simply a touch scoreboard.
+ */
+const native = window.PadelNative;
+const callNative = (method, ...args) => {
+  if (native && typeof native[method] === "function") native[method](...args);
+};
+
+const clock = (t) => new Date(t).toTimeString().slice(0, 8);
+
+function logLine(entry) {
+  const heard = entry.tokens
+    ? `  [${entry.before ?? "·"} | ${entry.tokens.join(" ")} | ${entry.after ?? "·"}]`
+    : "";
+  const level = Number.isFinite(entry.rms) ? `  ${entry.rms.toFixed(0)} dB` : "";
+
+  return `${clock(entry.t)}  ${entry.action.padEnd(14)} «${entry.text}»${heard}${level}`;
+}
+
+const voice = createVoice({
+  now: () => Date.now(),
+  // Americano counts plain points with no server to call them; it stays on touch.
+  isEnabled: () => !isAmericano(),
+  getMatch: () => session,
+  commit: (points) => apply(commit(session, points)),
+  undo: () => apply(undo(session)),
+  tone: (kind) => callNative("tone", kind),
+  setGrammar: (name, phrases) => callNative("setGrammar", name, JSON.stringify(phrases)),
+  log: (entry) => ui.logVoice(logLine(entry)),
+  showHeard: ui.showHeard,
+  clearHeard: ui.clearHeard,
+});
+
+function syncVoiceEnabled() {
+  callNative("setVoiceEnabled", !isAmericano());
+}
+
+const parse = (json) => {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+window.padelVoice = {
+  partial: voice.partial,
+  final: voice.final,
+  status(json) {
+    const status = parse(json);
+    if (status) ui.showVoiceStatus(status);
+  },
+};
 
 // -------------------------------------------------------------- screen wake
 
@@ -120,7 +200,13 @@ document.addEventListener("visibilitychange", () => {
 // ------------------------------------------------------------------- start
 
 ui.renderFormats(format);
+ui.renderFirstServer(session.firstServer);
 show();
+
+// Tell the native side the page is listening, then what it should listen for.
+callNative("ready");
+syncVoiceEnabled();
+voice.resync();
 
 // A wake lock needs a user gesture on some builds, so try immediately and
 // again on the first interaction.

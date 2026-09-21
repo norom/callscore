@@ -566,3 +566,74 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* --------------------------------------------------------------------- serve */
+
+/* Who serves decides whose score is called first, so a wrong marker explains a
+   wrong score at a glance. */
+.serve {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin-left: 0.6em;
+  border-radius: 50%;
+  background: var(--ball);
+  vertical-align: -0.15em;
+}
+
+.serve[hidden] {
+  display: none;
+}
+
+.serve-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.serve-pick-title {
+  flex: 1;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.serve-option {
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-weight: 600;
+}
+
+.serve-option[data-current] {
+  border-color: var(--ball);
+  color: var(--ball);
+}
+
+/* ----------------------------------------------------------------------- mic */
+
+/* The dot says which microphone is live without opening the sheet: the ball
+   colour for the earbuds, amber for the phone's own mic, nothing when off. */
+.bar-btn--mic::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  vertical-align: middle;
+}
+
+.bar-btn--mic[data-mic="earbuds"]::before {
+  background: var(--ball);
+}
+
+.bar-btn--mic[data-mic="phone"]::before {
+  background: #ffb347;
+}

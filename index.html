@@ -20,13 +20,13 @@
   <header class="bar">
     <span class="format" id="format">Best of 3</span>
     <button class="bar-btn" id="fullscreenBtn" title="Full screen" aria-label="Full screen">⛶</button>
-    <button class="bar-btn" id="voiceBtn">Voice</button>
+    <button class="bar-btn bar-btn--mic" id="voiceBtn" data-mic="none">Voice</button>
     <button class="bar-btn" id="newBtn">New match</button>
   </header>
 
   <main class="court">
     <section class="side side--a" id="sideA">
-      <h2 class="team">Team A</h2>
+      <h2 class="team">Team A<span class="serve" id="serveA" title="Serving" hidden></span></h2>
       <div class="score" id="scoreA">0</div>
       <dl class="stats">
         <div class="stat"><dt>Sets</dt><dd id="setsA">0</dd></div>
@@ -39,7 +39,7 @@
     <span class="score score-probe" id="scoreProbe" aria-hidden="true">AD</span>
 
     <section class="side side--b" id="sideB">
-      <h2 class="team">Team B</h2>
+      <h2 class="team">Team B<span class="serve" id="serveB" title="Serving" hidden></span></h2>
       <div class="score" id="scoreB">0</div>
       <dl class="stats">
         <div class="stat"><dt>Sets</dt><dd id="setsB">0</dd></div>
@@ -61,6 +61,12 @@
   <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <h2 id="confirmTitle">Start a new match</h2>
     <p>Choosing a format clears the current score.</p>
+
+    <div class="serve-pick" role="group" aria-labelledby="servePickTitle">
+      <span class="serve-pick-title" id="servePickTitle">First serve</span>
+      <button class="serve-option" data-team="A">Team A</button>
+      <button class="serve-option" data-team="B">Team B</button>
+    </div>
 
     <div class="format-list">
       <button class="format-row" data-kind="tennis">
