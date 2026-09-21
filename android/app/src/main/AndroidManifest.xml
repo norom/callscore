@@ -4,6 +4,16 @@
     <!-- No network permission: every file is served from the APK and speech is
          recognised on the device, so the scoreboard never touches the internet. -->
 
+    <!-- The microphone, and the right to steer it: reaching the earbuds' mic
+         means putting the audio system in communication mode and naming them as
+         the device. Bluetooth is only so the headset can be identified; nothing
+         is scanned for or connected to. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature android:name="android.hardware.microphone" android:required="true" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
