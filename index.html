@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Padel Scoreboard</title>
+<meta name="description" content="Courtside padel scoreboard scored by voice.">
+<meta name="theme-color" content="#080d13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="./icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<div class="board">
+
+  <header class="bar">
+    <span class="format" id="format">Best of 3</span>
+    <button class="bar-btn" id="fullscreenBtn" title="Full screen" aria-label="Full screen">⛶</button>
+    <button class="bar-btn" id="voiceBtn">Voice</button>
+    <button class="bar-btn" id="newBtn">New match</button>
+  </header>
+
+  <main class="court">
+    <section class="side side--a" id="sideA">
+      <h2 class="team">Team A</h2>
+      <div class="score" id="scoreA">0</div>
+      <dl class="stats">
+        <div class="stat"><dt>Sets</dt><dd id="setsA">0</dd></div>
+        <div class="stat"><dt>Games</dt><dd id="gamesA">0</dd></div>
+      </dl>
+    </section>
+
+    <div class="net"><span class="net-badge" id="netBadge"></span></div>
+
+    <span class="score score-probe" id="scoreProbe" aria-hidden="true">AD</span>
+
+    <section class="side side--b" id="sideB">
+      <h2 class="team">Team B</h2>
+      <div class="score" id="scoreB">0</div>
+      <dl class="stats">
+        <div class="stat"><dt>Sets</dt><dd id="setsB">0</dd></div>
+        <div class="stat"><dt>Games</dt><dd id="gamesB">0</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="controls">
+    <button class="control control--a" id="btnA">+ Team A</button>
+    <button class="control control--undo" id="btnUndo">Undo</button>
+    <button class="control control--b" id="btnB">+ Team B</button>
+  </footer>
+
+</div>
+
+<!-- New match: pick a format, which also confirms clearing the score -->
+<div class="sheet" id="confirmSheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 id="confirmTitle">Start a new match</h2>
+    <p>Choosing a format clears the current score.</p>
+
+    <div class="format-list">
+      <button class="format-row" data-kind="tennis">
+        <span class="format-name">Tennis</span>
+        <span class="format-detail">Best of 3 sets, scored 15 / 30 / 40</span>
+      </button>
+      <button class="format-row" data-kind="americano" data-target="21">
+        <span class="format-name">Americano to 21</span>
+        <span class="format-detail">21 points played, then the round ends</span>
+      </button>
+      <button class="format-row" data-kind="americano" data-target="24">
+        <span class="format-name">Americano to 24</span>
+        <span class="format-detail">24 points played, then the round ends</span>
+      </button>
+    </div>
+
+    <div class="sheet-actions">
+      <button id="confirmCancel">Keep playing</button>
+    </div>
+  </div>
+</div>
+
+<!-- Voice: what the microphone is, and what has been heard -->
+<div class="sheet" id="voiceSheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="voiceTitle">
+    <h2 id="voiceTitle">Voice</h2>
+    <p>Say «счёт» and then the score, server first: «счёт ноль пятнадцать».</p>
+
+    <div class="input-log-wrap">
+      <span class="input-log-title">Microphone</span>
+      <p class="voice-status" id="voiceStatus">Voice is not running.</p>
+      <span class="input-log-title">Heard</span>
+      <div class="input-log empty" id="voiceLog">Nothing yet.</div>
+    </div>
+    <div class="sheet-actions">
+      <button id="voiceCopy">Copy report</button>
+      <button id="voiceDone" class="danger">Done</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

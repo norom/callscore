@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+*.log
+.playwright-mcp/
+dist/
+
+# Android
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+*.apk
+
+# The speech model is fetched by tools/fetch-model.sh, not committed
+android/model-assets/
