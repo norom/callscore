@@ -12,7 +12,7 @@ has no internet permission.
 **Status:** everything is built and tested off the phone; **nothing has been tried on
 a phone or a court yet.** The next step is the on-device spike in the design document
 (earbud microphone, recognition in real noise, Bluetooth range), which decides whether
-this approach holds. The design, the measurements behind it and the milestones are in
+this approach holds — the procedure is in [`docs/on-court-spike.md`](docs/on-court-spike.md). The design, the measurements behind it and the milestones are in
 [`docs/superpowers/specs/2026-09-21-padel-audio-design.md`](docs/superpowers/specs/2026-09-21-padel-audio-design.md).
 
 ## Layout
