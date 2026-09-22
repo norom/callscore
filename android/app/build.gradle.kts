@@ -13,7 +13,7 @@ android {
         minSdk = 31
         targetSdk = 34
         versionCode = 1
-        versionName = "0.1"
+        versionName = "0.1.0"
 
         // One phone. Each extra ABI is another 10 MB of libvosk, so the
         // emulator's is only added when asked for: ./gradlew assembleDebug -Pemulator

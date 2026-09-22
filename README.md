@@ -10,14 +10,26 @@ permission.
 
 Successor to [d10_padel](https://github.com/norom/d10_padel): the same scoring
 engine and screen, with the remote control replaced by speech recognised on the
-phone (Vosk, Russian, closed vocabulary). Nothing leaves the device and the app
-has no internet permission.
+phone (Vosk, Russian small model, closed vocabulary).
 
-**Status:** works on the phone — earbud microphone, on-device recognition and voice
-scoring confirmed on a Galaxy S22 Ultra (Android 16) with Panasonic RB-F10 earbuds.
-Not yet measured on a court: recognition in real noise and Bluetooth range — the
-procedure is in [`docs/on-court-spike.md`](docs/on-court-spike.md). The design, the measurements behind it and the milestones are in
+**Status (v0.1):** works — earbud microphone, on-device recognition, voice scoring
+and range across a flat confirmed on a Galaxy S22 Ultra (Android 16) with Panasonic
+RB-F10 earbuds. Not yet measured on a court: recognition in real noise. The procedure
+for that is in [`docs/on-court-spike.md`](docs/on-court-spike.md); the design, the
+measurements behind it and the milestones are in
 [`docs/superpowers/specs/2026-09-21-padel-audio-design.md`](docs/superpowers/specs/2026-09-21-padel-audio-design.md).
+
+## Install
+
+Download `callscore-<version>.apk` from the
+[latest release](https://github.com/norom/callscore/releases/latest) and open it on
+the phone (Android 12 or newer; it is not on Play, so allow installing from this
+source). On first launch allow the microphone and nearby devices. Put the earbuds in,
+open **Voice** in the top bar: the second line should read `Earbuds: …` and the dot
+next to Voice turns yellow-green. Then say «счёт ноль пятнадцать».
+
+Touch always works too: **+ Team A**, **Undo**, **+ Team B**, and **New match** to
+choose the format and who serves first.
 
 ## Layout
 
@@ -29,6 +41,7 @@ procedure is in [`docs/on-court-spike.md`](docs/on-court-spike.md). The design, 
 | `src/voice-parse.js` | Heard words → a command: «счёт» followed at once by one complete phrase |
 | `src/reconcile.js` | A called score → a new point list, by searching the next two points through the real engine |
 | `src/session.js` | The match in progress and snapshot undo |
+| `src/ends.js` | Which end each team is on, by the rules |
 | `src/voice.js` | The voice policy: which tone, confirm-by-repeat, echo guard, grammar switching |
 | `src/storage.js` | Persistence of the point list, first server and format |
 | `src/ui.js`, `src/app.js`, `index.html`, `styles.css` | The screen and its wiring |

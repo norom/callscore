@@ -1,4 +1,9 @@
-# padel_audio — voice-scored padel scoreboard (base plan)
+# Callscore (née padel_audio) — voice-scored padel scoreboard (base plan)
+
+*Status 2026-09-22: M1–M5 done and confirmed on the phone (v0.1.0). M6 waits for a real match.
+Added since the plan: changing ends («счёт смена», ⇄, and automatically by the rules —
+`src/ends.js`), Team B recoloured orange, a native trace in the voice log, a route ladder
+for the earbud mic, and a debug audio dump/replay.*
 
 ## Context
 

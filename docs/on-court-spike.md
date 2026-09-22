@@ -46,6 +46,8 @@ quality and recognition will be noticeably worse.
 `[before | command | after]` columns and the dB level on each line are what the next round
 of tuning will use.
 
+*Done 2026-09-22 across a flat: earbud mic routes, calls apply, range fine. Court noise is the open question.*
+
 ## 3. Range (5 min, on the court)
 
 Phone where it will sit during a match. Walk to the far corner of your side, turn your back
@@ -80,4 +82,6 @@ time · what was done · what Vosk heard · [word before | the command | word af
 | `undo`, `echo` | «отмена»; a repeat of «гейм»/«отмена» within 8 s, deliberately not applied twice |
 | `ignored` | No command in the utterance — silent |
 | `impossible`, `ambiguous`, `over`, `nothing-to-undo` | Understood, refused — two flat notes |
+| `swap` | «смена»: the board mirrored |
 | `stale-grammar` | Decoded while switching between game and tie-break words; dropped |
+| `native …` | The phone's own account: which route to the earbuds was taken, what the recorder was given, why it stopped |
