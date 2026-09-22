@@ -258,7 +258,11 @@ export function createUI(handlers) {
    * court is not where anyone reads a log — hence the copy button.
    */
   const heard = [];
-  const HEARD_LIMIT = 200;
+
+  // A two-hour match near talkative people is a few thousand lines: about
+  // half a megabyte, and the report has to cover the whole match to be worth
+  // tuning from. Only the tail is ever drawn.
+  const HEARD_LIMIT = 3000;
 
   function logVoice(line) {
     heard.push(line);
