@@ -9,10 +9,10 @@ engine and screen, with the remote control replaced by speech recognised on the
 phone (Vosk, Russian, closed vocabulary). Nothing leaves the device and the app
 has no internet permission.
 
-**Status:** everything is built and tested off the phone; **nothing has been tried on
-a phone or a court yet.** The next step is the on-device spike in the design document
-(earbud microphone, recognition in real noise, Bluetooth range), which decides whether
-this approach holds — the procedure is in [`docs/on-court-spike.md`](docs/on-court-spike.md). The design, the measurements behind it and the milestones are in
+**Status:** works on the phone — earbud microphone, on-device recognition and voice
+scoring confirmed on a Galaxy S22 Ultra (Android 16) with Panasonic RB-F10 earbuds.
+Not yet measured on a court: recognition in real noise and Bluetooth range — the
+procedure is in [`docs/on-court-spike.md`](docs/on-court-spike.md). The design, the measurements behind it and the milestones are in
 [`docs/superpowers/specs/2026-09-21-padel-audio-design.md`](docs/superpowers/specs/2026-09-21-padel-audio-design.md).
 
 ## Layout

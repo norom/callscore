@@ -160,6 +160,12 @@ Known limit, no v1 fix: in a tie-break at 0-0 both «один ноль» and «�
 5. **M5 Wire-up** — `voice.js`, tones, confirm/dedupe, tie-break grammar switch.
 6. **M6 Tuning** from the event log after real matches: RMS gate, embedded-in-speech rule, forced-final on a stable partial only if finals arrive >1.5 s late.
 
+**M2 result (2026-09-22, S22 Ultra on Android 16, Panasonic RB-F10):** earbud mic routes and
+«счёт ноль пятнадцать» scores the board. Two phone-only findings on the way: `setGrammar()`
+on a live recogniser aborts the process (recreate it instead), and registering an
+`AudioDeviceCallback` is answered at once with the whole device list (ignore it, or the
+recorder restarts forever). The go/no-go count and the range test are still to be done.
+
 If M2 fails go/no-go, stop and revisit the recognition approach before M5 — M1, M3, M4 remain valid for any recogniser because the seam is plain text.
 
 ## Verification
