@@ -15,9 +15,7 @@ phone (Vosk, Russian small model, closed vocabulary).
 **Status (v0.1):** works — earbud microphone, on-device recognition, voice scoring
 and range across a flat confirmed on a Galaxy S22 Ultra (Android 16) with Panasonic
 RB-F10 earbuds. Not yet measured on a court: recognition in real noise. The procedure
-for that is in [`docs/on-court-spike.md`](docs/on-court-spike.md); the design, the
-measurements behind it and the milestones are in
-[`docs/superpowers/specs/2026-09-21-padel-audio-design.md`](docs/superpowers/specs/2026-09-21-padel-audio-design.md).
+for that is in [`docs/on-court-spike.md`](docs/on-court-spike.md); 
 
 ## Install
 
