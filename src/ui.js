@@ -28,6 +28,8 @@ export function createUI(handlers) {
     btnB: el("btnB"),
     btnUndo: el("btnUndo"),
     newBtn: el("newBtn"),
+    swapBtn: el("swapBtn"),
+    board: document.querySelector(".board"),
     voiceBtn: el("voiceBtn"),
     fullscreenBtn: el("fullscreenBtn"),
     probe: el("scoreProbe"),
@@ -68,6 +70,8 @@ export function createUI(handlers) {
       nodes.gamesA.textContent = view.stats.games.A;
       nodes.gamesB.textContent = view.stats.games.B;
     }
+
+    nodes.board.classList.toggle("board--swapped", Boolean(view.swapped));
 
     nodes.serveA.hidden = view.server !== "A";
     nodes.serveB.hidden = view.server !== "B";
@@ -296,6 +300,7 @@ export function createUI(handlers) {
   nodes.btnUndo.addEventListener("click", () => handlers.onUndo());
 
   nodes.newBtn.addEventListener("click", confirmNewMatch);
+  nodes.swapBtn.addEventListener("click", () => handlers.onSwap());
   nodes.confirmCancel.addEventListener("click", () => closeSheet(nodes.confirmSheet));
 
   for (const row of document.querySelectorAll(".format-row")) {

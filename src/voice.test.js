@@ -16,6 +16,7 @@ function rig({ points = [], firstServer = "A", enabled = true } = {}) {
     clock: 1_000_000,
     enabled,
     tones: [],
+    swaps: 0,
     grammars: [],
     log: [],
     heard: null,
@@ -27,6 +28,7 @@ function rig({ points = [], firstServer = "A", enabled = true } = {}) {
     getMatch: () => world.session,
     commit: (next) => (world.session = commit(world.session, next)),
     undo: () => (world.session = undo(world.session)),
+    swap: () => world.swaps++,
     tone: (kind) => world.tones.push(kind),
     setGrammar: (name, phrases) => world.grammars.push({ name, phrases }),
     log: (entry) => world.log.push(entry),
@@ -193,6 +195,21 @@ test("«гейм» heard twice in a row is one game", () => {
 
   assert.deepEqual(world.board().games, { A: 1, B: 0 });
   assert.deepEqual(world.tones, ["ok", "ok"]);
+});
+
+test("«смена» mirrors the board, and an echo of it does not mirror it back", () => {
+  const world = rig();
+
+  world.say("счёт смена");
+  world.clock += 2000;
+  world.say("счёт смена");
+
+  assert.equal(world.swaps, 1);
+  assert.deepEqual(world.tones, ["ok", "ok"]);
+
+  world.clock += REPEAT_WINDOW_MS + 1;
+  world.say("счёт стороны");
+  assert.equal(world.swaps, 2);
 });
 
 // ------------------------------------------------------------------ grammar

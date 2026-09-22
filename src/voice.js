@@ -39,6 +39,7 @@ export function createVoice({
   getMatch,
   commit,
   undo,
+  swap,
   tone,
   setGrammar,
   log,
@@ -110,6 +111,12 @@ export function createVoice({
     if (command.kind !== "score") {
       const echo = lastOnce && lastOnce.key === key && at - lastOnce.at <= REPEAT_WINDOW_MS;
       if (echo) return { tone: "ok", action: "echo" };
+    }
+
+    if (command.kind === "swap") {
+      swap();
+      lastOnce = { key, at };
+      return { tone: "ok", action: "swap" };
     }
 
     if (command.kind === "undo") {

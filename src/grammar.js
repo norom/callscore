@@ -58,9 +58,11 @@ const GAME_PHRASES = [
   "меньше",
   "гейм",
   "отмена",
+  "смена",
+  "стороны",
 ];
 
-const TIE_BREAK_PHRASES = [...pairs(Object.keys(COUNT_WORDS)), "гейм", "отмена"];
+const TIE_BREAK_PHRASES = [...pairs(Object.keys(COUNT_WORDS)), "гейм", "отмена", "смена", "стороны"];
 
 const withWake = (phrases) => phrases.map((phrase) => `${WAKE} ${phrase}`);
 

@@ -15,8 +15,9 @@
 
   --court-a: #0d3557;
   --court-a-lift: #1d5d92;
-  --court-b: #1a5c3a;
-  --court-b-lift: #2b8f5b;
+  /* Warm against the blue: green and blue read alike from across a court. */
+  --court-b: #7a3a10;
+  --court-b-lift: #b95f1d;
 
   --surround: #080d13;
   --bar: #0e141c;
@@ -128,6 +129,13 @@ body {
   display: flex;
   position: relative;
   min-height: 0;
+}
+
+/* Players change ends; the board follows, so each team's score stays on the
+   side of the court they are on. Everything mirrors: fields and buttons. */
+.board--swapped .court,
+.board--swapped .controls {
+  flex-direction: row-reverse;
 }
 
 .side {
@@ -312,7 +320,7 @@ body {
 }
 
 .control--a { background: var(--court-a); border-color: #1b4d78; }
-.control--b { background: var(--court-b); border-color: #237a4c; }
+.control--b { background: var(--court-b); border-color: #9c4f1c; }
 
 .control--undo {
   flex: 0 0 28%;

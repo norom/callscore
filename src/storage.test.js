@@ -30,6 +30,15 @@ test("points survive a reload", () => {
   assert.deepEqual(createStore(storage).load().points, ["A", "A", "B"]);
 });
 
+test("which way round the board is survives a reload", () => {
+  const storage = fakeStorage();
+
+  createStore(storage).saveSwapped(true);
+
+  assert.equal(createStore(storage).load().swapped, true);
+  assert.equal(createStore(fakeStorage()).load().swapped, false);
+});
+
 test("a fresh store has team A serving first", () => {
   assert.equal(createStore(fakeStorage()).load().firstServer, "A");
 });

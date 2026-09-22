@@ -14,12 +14,14 @@ const store = createStore(window.localStorage);
 
 const saved = store.load();
 let format = saved.format;
+let swapped = saved.swapped;
 let session = createSession(saved);
 
 const ui = createUI({
   onPoint: score,
   onUndo: undoPoint,
   onNewMatch: newMatch,
+  onSwap: swapSides,
 });
 
 // ------------------------------------------------------------------ formats
@@ -44,6 +46,7 @@ function view() {
       stats: null,
       advantage: null,
       server: null,
+      swapped,
       badge: state.draw ? "Draw" : state.winner ? `Team ${state.winner} wins` : "",
       status: state.matchOver ? "Round complete" : `Americano · to ${format.target}`,
       locked: state.matchOver,
@@ -55,6 +58,7 @@ function view() {
     stats: { sets: state.setsWon, games: state.games },
     advantage: state.advantage,
     server: state.matchOver ? null : serverAt(session.points, session.firstServer),
+    swapped,
     badge: state.matchOver
       ? `Team ${state.winner} wins`
       : state.tieBreak
@@ -106,6 +110,13 @@ function undoPoint() {
   apply(undo(session));
 }
 
+/** The players changed ends: the board mirrors so each score stays on its side. */
+function swapSides() {
+  swapped = !swapped;
+  store.saveSwapped(swapped);
+  show();
+}
+
 function newMatch(chosen, firstServer) {
   format = chosen;
   session = createSession({ points: [], firstServer });
@@ -148,6 +159,7 @@ const voice = createVoice({
   getMatch: () => session,
   commit: (points) => apply(commit(session, points)),
   undo: () => apply(undo(session)),
+  swap: swapSides,
   tone: (kind) => callNative("tone", kind),
   setGrammar: (name, phrases) => callNative("setGrammar", name, JSON.stringify(phrases)),
   log: (entry) => ui.logVoice(logLine(entry)),

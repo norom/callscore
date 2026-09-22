@@ -9,7 +9,8 @@
  * Every score comes out the same shape, a pair of labels with the server's
  * first, in the scoreboard's own vocabulary ("0", "15", "40", "AD", or a plain
  * count in a tie-break). Deuce and advantage are scores like any other, which
- * leaves the reconciler one thing to compare rather than five.
+ * leaves the reconciler one thing to compare rather than five. «смена» is not
+ * about the score at all: the players have changed ends and the board mirrors.
  */
 
 import { WAKE, POINT_WORDS, COUNT_WORDS } from "./grammar.js";
@@ -36,6 +37,7 @@ export function parseCommand(tokens, { tieBreak }) {
   if (second === undefined) {
     if (first === "гейм") return { kind: "game" };
     if (first === "отмена") return { kind: "undo" };
+    if (first === "смена" || first === "стороны") return { kind: "swap" };
     if (tieBreak) return null;
 
     if (first === "ровно") return score("40", "40");

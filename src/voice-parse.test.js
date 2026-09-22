@@ -42,6 +42,12 @@ test("game and undo", () => {
   assert.deepEqual(parseCommand(["отмена"], TIE), { kind: "undo" });
 });
 
+test("changing ends is a command in any part of the match", () => {
+  assert.deepEqual(parseCommand(["смена"], GAME), { kind: "swap" });
+  assert.deepEqual(parseCommand(["стороны"], GAME), { kind: "swap" });
+  assert.deepEqual(parseCommand(["смена"], TIE), { kind: "swap" });
+});
+
 test("a tie-break is called in plain numbers", () => {
   assert.deepEqual(parseCommand(["три", "два"], TIE), score("3", "2"));
   assert.deepEqual(parseCommand(["ноль", "один"], TIE), score("0", "1"));

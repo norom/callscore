@@ -1,9 +1,9 @@
 /**
  * Local persistence.
  *
- * Only the point list, who served first and the format are stored — everything
- * else on the scoreboard is derived, so this stays small and cheap to write on
- * every point. Storage is treated as untrusted: a courtside phone that half-wrote a
+ * Only the point list, who served first, the format and which way round the
+ * board is are stored — everything else on the scoreboard is derived, so this
+ * stays small and cheap to write on every point. Storage is treated as untrusted: a courtside phone that half-wrote a
  * value or has storage blocked must still show a working scoreboard.
  */
 
@@ -19,6 +19,7 @@ export const EMPTY = Object.freeze({
   points: [],
   firstServer: DEFAULT_FIRST_SERVER,
   format: TENNIS,
+  swapped: false,
 });
 
 /**
@@ -75,7 +76,7 @@ function parse(raw) {
 
   const firstServer = TEAMS.has(data.firstServer) ? data.firstServer : DEFAULT_FIRST_SERVER;
 
-  return { points, firstServer, format: parseFormat(data.format) };
+  return { points, firstServer, format: parseFormat(data.format), swapped: data.swapped === true };
 }
 
 export function createStore(storage, key = KEY) {
@@ -93,6 +94,11 @@ export function createStore(storage, key = KEY) {
 
     saveFormat(format) {
       write({ ...read(), format });
+    },
+
+    /** Which side of the screen Team A is on: the players changed ends. */
+    saveSwapped(swapped) {
+      write({ ...read(), swapped });
     },
 
     /** A new match: no points yet, and the team that serves the first game. */
