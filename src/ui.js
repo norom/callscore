@@ -29,6 +29,7 @@ export function createUI(handlers) {
     btnUndo: el("btnUndo"),
     newBtn: el("newBtn"),
     swapBtn: el("swapBtn"),
+    autoEnds: el("autoEnds"),
     board: document.querySelector(".board"),
     voiceBtn: el("voiceBtn"),
     fullscreenBtn: el("fullscreenBtn"),
@@ -195,6 +196,10 @@ export function createUI(handlers) {
       : { kind: "tennis" };
   }
 
+  function renderAutoEnds(on) {
+    nodes.autoEnds.checked = on;
+  }
+
   let chosenServer = "A";
 
   function renderFirstServer(team) {
@@ -301,6 +306,7 @@ export function createUI(handlers) {
 
   nodes.newBtn.addEventListener("click", confirmNewMatch);
   nodes.swapBtn.addEventListener("click", () => handlers.onSwap());
+  nodes.autoEnds.addEventListener("change", () => handlers.onAutoEnds(nodes.autoEnds.checked));
   nodes.confirmCancel.addEventListener("click", () => closeSheet(nodes.confirmSheet));
 
   for (const row of document.querySelectorAll(".format-row")) {
@@ -332,6 +338,7 @@ export function createUI(handlers) {
     flash,
     renderFormats,
     renderFirstServer,
+    renderAutoEnds,
     showHeard,
     clearHeard,
     showVoiceStatus,

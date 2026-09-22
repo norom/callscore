@@ -20,6 +20,7 @@ export const EMPTY = Object.freeze({
   firstServer: DEFAULT_FIRST_SERVER,
   format: TENNIS,
   swapped: false,
+  autoEnds: true,
 });
 
 /**
@@ -76,7 +77,13 @@ function parse(raw) {
 
   const firstServer = TEAMS.has(data.firstServer) ? data.firstServer : DEFAULT_FIRST_SERVER;
 
-  return { points, firstServer, format: parseFormat(data.format), swapped: data.swapped === true };
+  return {
+    points,
+    firstServer,
+    format: parseFormat(data.format),
+    swapped: data.swapped === true,
+    autoEnds: data.autoEnds !== false,
+  };
 }
 
 export function createStore(storage, key = KEY) {
@@ -99,6 +106,11 @@ export function createStore(storage, key = KEY) {
     /** Which side of the screen Team A is on: the players changed ends. */
     saveSwapped(swapped) {
       write({ ...read(), swapped });
+    },
+
+    /** Whether the board changes ends by itself after odd games. */
+    saveAutoEnds(autoEnds) {
+      write({ ...read(), autoEnds });
     },
 
     /** A new match: no points yet, and the team that serves the first game. */

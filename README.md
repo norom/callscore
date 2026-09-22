@@ -47,6 +47,10 @@ Say «счёт», then the score **server first**, as it is called on court.
 | «счёт гейм» | the team on game point wins the game |
 | «счёт отмена» | take back the last change |
 | «счёт смена» (or «счёт стороны») | changed ends: the board mirrors so each score stays on its team's side. The ⇄ button does the same |
+
+By default the board changes ends by itself — after the first game, then every two, and
+every six points in a tie-break — and «счёт смена» is only a correction. The switch is in
+the New match sheet.
 | «счёт три два» | in a tie-break: plain numbers, server first |
 
 In the ear: one blip = done · two rising notes = that is a leap from the board, say it

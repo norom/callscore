@@ -623,6 +623,39 @@ body {
   color: var(--ball);
 }
 
+.option-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 14px;
+  cursor: pointer;
+}
+
+.option-row input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--ball);
+  flex: none;
+}
+
+.option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.option-detail {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
 /* ----------------------------------------------------------------------- mic */
 
 /* The dot says which microphone is live without opening the sheet: the ball

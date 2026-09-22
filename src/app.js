@@ -7,6 +7,7 @@ import { deriveAmericano, addAmericanoPoint, americanoLabel } from "./americano.
 import { createStore } from "./storage.js";
 import { createSession, commit, undo } from "./session.js";
 import { serverAt } from "./serve.js";
+import { endsChanged } from "./ends.js";
 import { createVoice } from "./voice.js";
 import { createUI } from "./ui.js";
 
@@ -15,6 +16,7 @@ const store = createStore(window.localStorage);
 const saved = store.load();
 let format = saved.format;
 let swapped = saved.swapped;
+let autoEnds = saved.autoEnds;
 let session = createSession(saved);
 
 const ui = createUI({
@@ -22,7 +24,17 @@ const ui = createUI({
   onUndo: undoPoint,
   onNewMatch: newMatch,
   onSwap: swapSides,
+  onAutoEnds: setAutoEnds,
 });
+
+/**
+ * Which way round the board is: where the rules put the teams, if the board
+ * follows the rules, corrected by however many times somebody said «смена».
+ */
+function sidesSwapped() {
+  const byRule = autoEnds && !isAmericano() && endsChanged(session.points);
+  return swapped !== byRule;
+}
 
 // ------------------------------------------------------------------ formats
 
@@ -46,7 +58,7 @@ function view() {
       stats: null,
       advantage: null,
       server: null,
-      swapped,
+      swapped: sidesSwapped(),
       badge: state.draw ? "Draw" : state.winner ? `Team ${state.winner} wins` : "",
       status: state.matchOver ? "Round complete" : `Americano · to ${format.target}`,
       locked: state.matchOver,
@@ -58,7 +70,7 @@ function view() {
     stats: { sets: state.setsWon, games: state.games },
     advantage: state.advantage,
     server: state.matchOver ? null : serverAt(session.points, session.firstServer),
-    swapped,
+    swapped: sidesSwapped(),
     badge: state.matchOver
       ? `Team ${state.winner} wins`
       : state.tieBreak
@@ -117,9 +129,17 @@ function swapSides() {
   show();
 }
 
+function setAutoEnds(on) {
+  autoEnds = on;
+  store.saveAutoEnds(on);
+  show();
+}
+
 function newMatch(chosen, firstServer) {
   format = chosen;
   session = createSession({ points: [], firstServer });
+  swapped = false;
+  store.saveSwapped(false);
 
   store.saveFormat(format);
   store.startMatch(firstServer);
@@ -218,6 +238,7 @@ document.addEventListener("visibilitychange", () => {
 
 ui.renderFormats(format);
 ui.renderFirstServer(session.firstServer);
+ui.renderAutoEnds(autoEnds);
 show();
 
 // Tell the native side the page is listening, then what it should listen for.
