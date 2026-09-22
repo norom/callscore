@@ -40,6 +40,12 @@ private const val REROUTE_EVERY_MS = 30_000L
 /** A live microphone is never digitally silent; this long of it means a dead route. */
 private const val SILENT_CHUNKS_LIMIT = 3 * SAMPLE_RATE / CHUNK_SAMPLES
 
+/** A route is given this many tries before the next one. */
+private const val TRIES_PER_ROUTE = 2
+
+/** On the phone's microphone, how often to look for the earbuds again. */
+private const val EARBUD_RETRY_MS = 60_000L
+
 /** After a tone: the earbuds' own echo of it must not be heard as a command. */
 private const val TONE_TAIL_MS = 300L
 
@@ -98,7 +104,7 @@ class VoiceEngine(
     private val emit: (method: String, json: String) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
-    private val router = AudioRouter(context) { main.post { restartCapture() } }
+    private val router = AudioRouter(context, ::trace) { main.post { restartCapture() } }
 
     private var model: Model? = null
     private var loading = false
@@ -111,9 +117,10 @@ class VoiceEngine(
 
     private var lastReroute = 0L
 
-    /** Which way of reaching the earbuds is in use; moves on when one yields silence. */
-    private var route = Route.MODERN_PINNED
-    private var quietRestarts = 0
+    /** Which way of reaching the earbuds is in use; moves on when one fails. */
+    private var route = Route.MODERN
+    private var failuresOnRoute = 0
+    private var lastEarbudRetry = 0L
 
     @Volatile private var gateUntil = 0L
     @Volatile private var state = "off"
@@ -131,11 +138,18 @@ class VoiceEngine(
             val misrouted = thread != null && thread.routeKnown && !thread.onEarbuds &&
                 router.earbuds() != null && now - lastReroute > REROUTE_EVERY_MS
 
-            if (thread != null && (thread.dead || misrouted)) {
-                // A route that was granted and then delivered nothing is not
-                // asked again straight away; the next way of asking is tried.
-                if (thread.dead && thread.diedQuiet && thread.onEarbuds) nextRoute()
+            if (thread != null && thread.dead) {
+                trace("recorder ended: ${thread.ending}")
+                nextRoute()
                 lastReroute = now
+                restartCapture()
+            } else if (thread != null && misrouted) {
+                restartCapture()
+            } else if (route == Route.PHONE && router.earbuds() != null && now - lastEarbudRetry > EARBUD_RETRY_MS) {
+                trace("earbuds present, trying them again")
+                lastEarbudRetry = now
+                route = Route.MODERN
+                failuresOnRoute = 0
                 restartCapture()
             }
             publishStatus()
@@ -212,8 +226,18 @@ class VoiceEngine(
     // ---------------------------------------------------------------- capture
 
     private fun nextRoute() {
-        quietRestarts++
-        route = Route.values()[quietRestarts % Route.values().size]
+        failuresOnRoute++
+        if (failuresOnRoute < TRIES_PER_ROUTE || route == Route.PHONE) return
+
+        failuresOnRoute = 0
+        route = Route.values()[route.ordinal + 1]
+        lastEarbudRetry = SystemClock.elapsedRealtime()
+        trace("moving to route ${route.name.lowercase()}")
+    }
+
+    /** A line in the page's log, so what happened on the phone travels with the report. */
+    private fun trace(text: String) {
+        emit("log", JSONObject().put("t", System.currentTimeMillis()).put("text", text).toString())
     }
 
     private fun startCapture() {
@@ -243,7 +267,7 @@ class VoiceEngine(
 
         @Volatile private var stopping = false
         @Volatile var dead = false
-        @Volatile var diedQuiet = false
+        @Volatile var ending = ""
         @Volatile var routeKnown = false
         @Volatile var onEarbuds = false
         @Volatile var deviceName = ""
@@ -283,11 +307,16 @@ class VoiceEngine(
 
             try {
                 if (record.state != AudioRecord.STATE_INITIALIZED) {
+                    ending = "AudioRecord not initialised"
                     setState("error", "The microphone could not be opened")
                     return
                 }
-                routed.input?.let { record.setPreferredDevice(it) }
+                routed.input?.let {
+                    val pinned = record.setPreferredDevice(it)
+                    trace("pinned recorder to ${router.describe(it)} -> $pinned")
+                }
                 record.startRecording()
+                trace("recording; state=${record.recordingState} routed=${router.describe(record.routedDevice)}")
 
                 val chunk = ShortArray(CHUNK_SAMPLES)
                 var applied: Grammar? = null
@@ -302,7 +331,10 @@ class VoiceEngine(
 
                 while (!stopping) {
                     val read = record.read(chunk, 0, chunk.size)
-                    if (read <= 0) break
+                    if (read <= 0) {
+                        ending = "read returned $read"
+                        break
+                    }
 
                     if (!routeKnown) {
                         // What the recorder was actually given, not what was asked for.
@@ -311,6 +343,7 @@ class VoiceEngine(
                             listOf(AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLUETOOTH_SCO))
                         deviceName = device?.productName?.toString() ?: ""
                         routeKnown = true
+                        trace("first audio; routed to ${router.describe(device)}")
                         setState("listening", "")
                     }
 
@@ -329,7 +362,7 @@ class VoiceEngine(
                     levelDb = level(squares, read.toLong())
                     silentChunks = if (loudest == 0) silentChunks + 1 else 0
                     if (silentChunks > SILENT_CHUNKS_LIMIT) {
-                        diedQuiet = true
+                        ending = "3 s of digital silence"
                         break
                     }
 
@@ -404,9 +437,11 @@ class VoiceEngine(
                     }
                 }
             } catch (error: Exception) {
+                ending = "${error.javaClass.simpleName}: ${error.message}"
                 setState("error", "Listening stopped: ${error.message}")
             } finally {
                 dead = !stopping
+                if (dead && ending.isEmpty()) ending = "ended without a reason"
                 try {
                     record.stop()
                 } catch (_: IllegalStateException) {

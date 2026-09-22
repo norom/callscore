@@ -170,6 +170,11 @@ const parse = (json) => {
 window.padelVoice = {
   partial: voice.partial,
   final: voice.final,
+  /** The native side's own account of what it did, kept with everything heard. */
+  log(json) {
+    const entry = parse(json);
+    if (entry) ui.logVoice(`${clock(entry.t)}  native         ${entry.text}`);
+  },
   status(json) {
     const status = parse(json);
     if (status) ui.showVoiceStatus(status);
