@@ -229,8 +229,15 @@ export function createUI(handlers) {
       `${status.state}${status.message ? ` — ${status.message}` : ""}`,
       `${MIC_NAMES[mic]}${status.device ? `: ${status.device}` : ""}`,
     ];
+    if (status.route) lines.push(`route: ${status.route}`);
     if (status.grammar) lines.push(`grammar: ${status.grammar}`);
     if (Number.isFinite(status.rtf)) lines.push(`decode load: ${Math.round(status.rtf * 100)}%`);
+    if (Number.isFinite(status.level)) {
+      // What the microphone delivers: a voice nearby reads around −20, an
+      // empty room −60, a dead route −100 with a peak of 0.
+      lines.push(`input: ${Math.round(status.level)} dB, peak ${status.peak}`);
+      lines.push(`heard: ${status.chunks} chunks, ${status.partials} partials, ${status.finals} finals`);
+    }
     if (Number.isFinite(status.battery)) lines.push(`battery: ${status.battery}%`);
 
     nodes.voiceStatus.textContent = lines.join("\n");

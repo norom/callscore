@@ -7,7 +7,7 @@ wrapper) that was meant to be scored from a Bluetooth camera remote. The remote'
 buttons turned out to be unreachable in firmware, so matches were scored by press-count
 on one button. `padel_audio` is the next attempt at hands-free scoring: **the same
 scoreboard and touch buttons, plus Russian voice commands through the mic of Bluetooth
-earbuds** (Xiaomi OpenWear Stereo). Wake word «счёт», then the score as called on court:
+earbuds** (Panasonic RB-F10, classic Bluetooth HFP — was Xiaomi OpenWear Stereo in the original brief). Wake word «счёт», then the score as called on court:
 «счёт ноль пятнадцать».
 
 `/root/python_projects/padel_audio` is empty today (no git). This is the base design for
@@ -135,7 +135,7 @@ Known limit, no v1 fix: in a tie-break at 0-0 both «один ноль» and «�
 ### Kotlin host (`android/app/src/main/java/com/norom/padelaudio/`)
 - **`MainActivity.kt`** — trimmed d10 host; permission flow; start capture in `onStart`, stop in `onStop` (not `onPause`, which fires for dialogs); always clear the communication device and restore `MODE_NORMAL` on stop; `volumeControlStream = STREAM_VOICE_CALL`. Activity-bound — no foreground service (screen stays on, app stays in front).
 - **`AudioRouter.kt`** — strict order: `MODE_IN_COMMUNICATION` → `setCommunicationDevice` (priority `TYPE_BLE_HEADSET`, `TYPE_BLUETOOTH_SCO`) → wait for `OnCommunicationDeviceChangedListener` (≤5 s) → only then create `AudioRecord` + `setPreferredDevice`. Ground truth is `AudioRecord.getRoutedDevice()`. Watchdog every 5 s and on routing events: re-assert device; restart the record after >3 s of all-zero samples. Fallback: phone mic.
-- **`VoiceEngine.kt`** — `StorageService.unpack` model once (needs a `uuid` file in the asset dir); capture thread, always 16 kHz mono PCM16 (the model cannot take 8 kHz), source `VOICE_COMMUNICATION` (compare with `VOICE_RECOGNITION` in the spike), buffer ≥1 s; `Recognizer` with `setWords(true)` for word timings; grammar swap via `recognizer.setGrammar(json)` on the capture thread — no recreation. Never stop the record to pause; discard buffers instead (an idle mode owner loses the mode).
+- **`VoiceEngine.kt`** — `StorageService.unpack` model once (needs a `uuid` file in the asset dir); capture thread, always 16 kHz mono PCM16 (the model cannot take 8 kHz), source `VOICE_COMMUNICATION` (compare with `VOICE_RECOGNITION` in the spike), buffer ≥1 s; `Recognizer` with `setWords(true)` for word timings; grammar swap by **building a new `Recognizer`** on the capture thread — `setGrammar()` on a live recogniser aborts the process with `KaldiFatalError` ("Can't add grammar to already running recognizer"), found on the emulator. Never stop the record to pause; discard buffers instead (an idle mode owner loses the mode).
 - **`Tones.kt`** — `AudioTrack` with `USAGE_VOICE_COMMUNICATION` (media usage is unreliable while SCO is up); 400–2000 Hz, distinguished by **pattern** not low pitch (open-ear buds have little bass). Gate capture for tone length + 300 ms, then `recognizer.reset()` — prevents a tone → false command → tone loop.
 
 ### Bridge contract

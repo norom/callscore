@@ -3,6 +3,7 @@ package com.norom.padelaudio
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
@@ -16,6 +17,10 @@ import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.StorageService
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.log10
 import kotlin.math.max
@@ -38,7 +43,46 @@ private const val SILENT_CHUNKS_LIMIT = 3 * SAMPLE_RATE / CHUNK_SAMPLES
 /** After a tone: the earbuds' own echo of it must not be heard as a command. */
 private const val TONE_TAIL_MS = 300L
 
+private const val WAV_HEADER_BYTES = 44
+
+/** Debug builds keep this much of what the microphone delivered, for pulling off the phone. */
+private const val DUMP_SECONDS = 180
+
 private class Grammar(val name: String, val phrases: String)
+
+/**
+ * A recording played into the recogniser in place of the microphone, at the
+ * pace a microphone would deliver it. Debug builds only. It is how the whole
+ * path — samples, Vosk, the page, the score — is tested where there is nobody
+ * to speak, and how a recording made on court can be run again after a change.
+ *
+ *   adb push call.wav /sdcard/Android/data/com.norom.padelaudio/files/replay.wav
+ *
+ * 16 kHz mono 16-bit. Picked up when listening next starts; played once.
+ */
+private class Replay(file: File) {
+    private val samples: ShortArray
+    private var at = 0
+
+    init {
+        val bytes = file.readBytes()
+        val body = ByteBuffer.wrap(bytes, WAV_HEADER_BYTES, bytes.size - WAV_HEADER_BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+        samples = ShortArray(body.remaining()).also { body.get(it) }
+        file.delete()
+    }
+
+    /** Overwrites `chunk` with the next stretch of the recording; false once it has run out. */
+    fun fill(chunk: ShortArray, length: Int): Boolean {
+        if (at >= samples.size) return false
+
+        val count = minOf(length, samples.size - at)
+        System.arraycopy(samples, at, chunk, 0, count)
+        chunk.fill(0, count, length)
+        at += count
+        return true
+    }
+}
 
 /**
  * Listens through the earbuds and reports what it recognised.
@@ -67,6 +111,10 @@ class VoiceEngine(
 
     private var lastReroute = 0L
 
+    /** Which way of reaching the earbuds is in use; moves on when one yields silence. */
+    private var route = Route.MODERN_PINNED
+    private var quietRestarts = 0
+
     @Volatile private var gateUntil = 0L
     @Volatile private var state = "off"
     @Volatile private var message = ""
@@ -84,6 +132,9 @@ class VoiceEngine(
                 router.earbuds() != null && now - lastReroute > REROUTE_EVERY_MS
 
             if (thread != null && (thread.dead || misrouted)) {
+                // A route that was granted and then delivered nothing is not
+                // asked again straight away; the next way of asking is tried.
+                if (thread.dead && thread.diedQuiet && thread.onEarbuds) nextRoute()
                 lastReroute = now
                 restartCapture()
             }
@@ -160,12 +211,17 @@ class VoiceEngine(
 
     // ---------------------------------------------------------------- capture
 
+    private fun nextRoute() {
+        quietRestarts++
+        route = Route.values()[quietRestarts % Route.values().size]
+    }
+
     private fun startCapture() {
         setState("loading", "Finding the microphone")
 
-        router.acquire { input ->
+        router.acquire(route) { routed ->
             if (!running) return@acquire
-            capture = CaptureThread(model!!, input).also { it.start() }
+            capture = CaptureThread(model!!, routed).also { it.start() }
         }
     }
 
@@ -182,16 +238,24 @@ class VoiceEngine(
 
     private inner class CaptureThread(
         private val model: Model,
-        private val input: AudioDeviceInfo?,
+        private val routed: Routed,
     ) : Thread("padel-voice") {
 
         @Volatile private var stopping = false
         @Volatile var dead = false
+        @Volatile var diedQuiet = false
         @Volatile var routeKnown = false
         @Volatile var onEarbuds = false
         @Volatile var deviceName = ""
         @Volatile var grammarName = ""
         @Volatile var load = 0.0
+
+        /** What the microphone is delivering right now, so silence shows as silence. */
+        @Volatile var levelDb = -100.0
+        @Volatile var peak = 0
+        @Volatile var chunks = 0L
+        @Volatile var partials = 0L
+        @Volatile var finals = 0L
 
         fun finish() {
             stopping = true
@@ -215,13 +279,14 @@ class VoiceEngine(
             )
 
             var recognizer: Recognizer? = null
+            var dump: FileOutputStream? = null
 
             try {
                 if (record.state != AudioRecord.STATE_INITIALIZED) {
                     setState("error", "The microphone could not be opened")
                     return
                 }
-                input?.let { record.setPreferredDevice(it) }
+                routed.input?.let { record.setPreferredDevice(it) }
                 record.startRecording()
 
                 val chunk = ShortArray(CHUNK_SAMPLES)
@@ -231,6 +296,9 @@ class VoiceEngine(
                 var wasGated = false
                 var sumSquares = 0.0
                 var samples = 0L
+                var replay = openReplay()
+                dump = openDump()
+                var dumped = 0L
 
                 while (!stopping) {
                     val read = record.read(chunk, 0, chunk.size)
@@ -238,18 +306,43 @@ class VoiceEngine(
 
                     if (!routeKnown) {
                         // What the recorder was actually given, not what was asked for.
-                        val routed = record.routedDevice
-                        onEarbuds = routed != null && routed.type == input?.type
-                        deviceName = routed?.productName?.toString() ?: ""
+                        val device = record.routedDevice
+                        onEarbuds = routed.earbuds || (device != null && device.type in
+                            listOf(AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLUETOOTH_SCO))
+                        deviceName = device?.productName?.toString() ?: ""
                         routeKnown = true
                         setState("listening", "")
                     }
 
-                    var silent = true
-                    for (i in 0 until read) if (chunk[i].toInt() != 0) { silent = false; break }
-                    silentChunks = if (silent) silentChunks + 1 else 0
-                    if (silentChunks > SILENT_CHUNKS_LIMIT) break
+                    // The microphone is still read, so the recording arrives in real time.
+                    if (replay != null && !replay.fill(chunk, read)) replay = null
 
+                    chunks++
+                    var squares = 0.0
+                    var loudest = 0
+                    for (i in 0 until read) {
+                        val v = chunk[i].toInt()
+                        squares += v.toDouble() * v
+                        if (v > loudest) loudest = v else if (-v > loudest) loudest = -v
+                    }
+                    peak = loudest
+                    levelDb = level(squares, read.toLong())
+                    silentChunks = if (loudest == 0) silentChunks + 1 else 0
+                    if (silentChunks > SILENT_CHUNKS_LIMIT) {
+                        diedQuiet = true
+                        break
+                    }
+
+                    if (dump != null) {
+                        val bytes = ByteBuffer.allocate(read * 2).order(ByteOrder.LITTLE_ENDIAN)
+                        bytes.asShortBuffer().put(chunk, 0, read)
+                        dump.write(bytes.array())
+                        dumped += read
+                        if (dumped >= DUMP_SECONDS.toLong() * SAMPLE_RATE) {
+                            dump.close()
+                            dump = null
+                        }
+                    }
                     // The recorder keeps running whatever happens: an app holding
                     // communication mode with nothing recording loses the mode.
                     val wanted = wantedGrammar.get()
@@ -261,29 +354,34 @@ class VoiceEngine(
                         continue
                     }
 
-                    if (recognizer == null) {
+                    if (wanted !== applied) {
+                        // A new recogniser rather than setGrammar() on this one:
+                        // Vosk refuses a grammar mid-utterance, and refuses by
+                        // aborting the process. Building one takes ~60 ms and
+                        // happens twice per tie-break.
+                        recognizer?.close()
                         recognizer = Recognizer(model, SAMPLE_RATE.toFloat(), wanted.phrases).apply { setWords(true) }
                         applied = wanted
                         grammarName = wanted.name
-                    } else if (wanted !== applied) {
-                        recognizer.setGrammar(wanted.phrases)
-                        recognizer.reset()
-                        applied = wanted
-                        grammarName = wanted.name
+                        if (lastPartial.isNotEmpty()) emitPartial("")
                         lastPartial = ""
+                        sumSquares = 0.0
+                        samples = 0
                     } else if (wasGated) {
-                        recognizer.reset()
+                        recognizer!!.reset()
                         lastPartial = ""
                     }
                     wasGated = false
 
+                    val active = recognizer!!
                     val began = SystemClock.elapsedRealtimeNanos()
-                    val finished = recognizer.acceptWaveForm(chunk, read)
+                    val finished = active.acceptWaveForm(chunk, read)
                     val spent = (SystemClock.elapsedRealtimeNanos() - began) / 1e9
                     load = 0.9 * load + 0.1 * (spent / (read.toDouble() / SAMPLE_RATE))
 
                     if (finished) {
-                        val result = JSONObject(recognizer.result)
+                        finals++
+                        val result = JSONObject(active.result)
                         if (result.optString("text").isNotEmpty()) {
                             emitFinal(result, level(sumSquares, samples), grammarName)
                         }
@@ -292,8 +390,9 @@ class VoiceEngine(
                         sumSquares = 0.0
                         samples = 0
                     } else {
-                        val partial = JSONObject(recognizer.partialResult).optString("partial")
+                        val partial = JSONObject(active.partialResult).optString("partial")
                         if (partial != lastPartial) {
+                            partials++
                             lastPartial = partial
                             emitPartial(partial)
                         }
@@ -314,7 +413,29 @@ class VoiceEngine(
                 }
                 record.release()
                 recognizer?.close()
+                dump?.close()
             }
+        }
+
+        /**
+         * Raw 16 kHz mono 16-bit, exactly as handed to the recogniser:
+         *   adb pull /sdcard/Android/data/com.norom.padelaudio/files/capture.pcm
+         *   ffmpeg -f s16le -ar 16000 -ac 1 -i capture.pcm capture.wav
+         */
+        private fun openDump(): FileOutputStream? {
+            if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
+            return try {
+                FileOutputStream(File(context.getExternalFilesDir(null), "capture.pcm"))
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        private fun openReplay(): Replay? {
+            if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
+
+            val file = File(context.getExternalFilesDir(null), "replay.wav")
+            return if (file.length() > WAV_HEADER_BYTES) Replay(file) else null
         }
 
         /** dB relative to full scale, so −20 is a close voice and −50 is the far court. */
@@ -360,8 +481,16 @@ class VoiceEngine(
             .put("mic", if (!listening) "none" else if (thread!!.onEarbuds) "earbuds" else "phone")
             .put("device", if (listening) thread!!.deviceName else "")
             .put("grammar", if (listening) thread!!.grammarName else "")
+            .put("route", route.name.lowercase().replace('_', ' '))
             .put("battery", battery)
-        if (listening) status.put("rtf", thread!!.load)
+        if (listening) {
+            status.put("rtf", thread!!.load)
+                .put("level", thread.levelDb)
+                .put("peak", thread.peak)
+                .put("chunks", thread.chunks)
+                .put("partials", thread.partials)
+                .put("finals", thread.finals)
+        }
 
         emit("status", status.toString())
     }
