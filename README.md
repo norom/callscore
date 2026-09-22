@@ -1,8 +1,12 @@
-# Padel Audio
+# Callscore
+
+Call the score, and the scoreboard follows.
 
 A courtside padel scoreboard for Android, scored by touch **and by voice**. Wear
 Bluetooth earbuds, say «счёт» and then the score as you would call it on court,
-server first — «счёт ноль пятнадцать» — and the phone's screen follows.
+server first — «счёт ноль пятнадцать» — and the phone's screen updates. Nothing
+leaves the phone: speech is recognised on the device, and the app has no internet
+permission.
 
 Successor to [d10_padel](https://github.com/norom/d10_padel): the same scoring
 engine and screen, with the remote control replaced by speech recognised on the

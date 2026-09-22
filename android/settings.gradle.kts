@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "padelaudio"
+rootProject.name = "callscore"
 include(":app")

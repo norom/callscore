@@ -265,7 +265,7 @@ export function createUI(handlers) {
 
   function buildReport() {
     return [
-      "PADEL AUDIO — DIAGNOSTICS",
+      "CALLSCORE — DIAGNOSTICS",
       navigator.userAgent,
       "",
       "STATUS",
