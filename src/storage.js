@@ -20,7 +20,7 @@ export const EMPTY = Object.freeze({
   firstServer: DEFAULT_FIRST_SERVER,
   format: TENNIS,
   swapped: false,
-  autoEnds: true,
+  autoEnds: false,
 });
 
 /**
@@ -82,7 +82,7 @@ function parse(raw) {
     firstServer,
     format: parseFormat(data.format),
     swapped: data.swapped === true,
-    autoEnds: data.autoEnds !== false,
+    autoEnds: data.autoEnds === true,
   };
 }
 

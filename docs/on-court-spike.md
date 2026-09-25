@@ -46,7 +46,8 @@ quality and recognition will be noticeably worse.
 `[before | command | after]` columns and the dB level on each line are what the next round
 of tuning will use.
 
-*Done 2026-09-22 across a flat: earbud mic routes, calls apply, range fine. Court noise is the open question.*
+*Done 2026-09-22 across a flat, and a full match on court on 2026-09-25: earbud mic
+routes, calls apply, range fine, recognition held up in real noise. Go.*
 
 ## 3. Range (5 min, on the court)
 

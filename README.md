@@ -12,10 +12,10 @@ Successor to [d10_padel](https://github.com/norom/d10_padel): the same scoring
 engine and screen, with the remote control replaced by speech recognised on the
 phone (Vosk, Russian small model, closed vocabulary).
 
-**Status (v0.1):** works — earbud microphone, on-device recognition, voice scoring
-and range across a flat confirmed on a Galaxy S22 Ultra (Android 16) with Panasonic
-RB-F10 earbuds. Not yet measured on a court: recognition in real noise. The procedure
-for that is in [`docs/on-court-spike.md`](docs/on-court-spike.md); 
+**Status (v0.1.1):** in use. Earbud microphone, on-device recognition and voice scoring
+confirmed through a full match on court with a Galaxy S22 Ultra (Android 16) and
+Panasonic RB-F10 earbuds. The checks it went through are in
+[`docs/on-court-spike.md`](docs/on-court-spike.md).
 
 ## Install
 
@@ -59,9 +59,9 @@ Say «счёт», then the score **server first**, as it is called on court.
 | «счёт отмена» | take back the last change |
 | «счёт смена» (or «счёт стороны») | changed ends: the board mirrors so each score stays on its team's side. The ⇄ button does the same |
 
-By default the board changes ends by itself — after the first game, then every two, and
-every six points in a tie-break — and «счёт смена» is only a correction. The switch is in
-the New match sheet.
+The board can also change ends by itself — after the first game, then every two, and every
+six points in a tie-break — with «счёт смена» as a correction. It is off by default; the
+switch is in the New match sheet.
 | «счёт три два» | in a tie-break: plain numbers, server first |
 
 In the ear: one blip = done · two rising notes = that is a leap from the board, say it

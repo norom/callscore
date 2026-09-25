@@ -16,8 +16,8 @@
   --court-a: #0d3557;
   --court-a-lift: #1d5d92;
   /* Warm against the blue: green and blue read alike from across a court. */
-  --court-b: #7a3a10;
-  --court-b-lift: #b95f1d;
+  --court-b: #c2530f;
+  --court-b-lift: #f07a2a;
 
   --surround: #080d13;
   --bar: #0e141c;
@@ -320,7 +320,7 @@ body {
 }
 
 .control--a { background: var(--court-a); border-color: #1b4d78; }
-.control--b { background: var(--court-b); border-color: #9c4f1c; }
+.control--b { background: var(--court-b); border-color: #e06a1c; }
 
 .control--undo {
   flex: 0 0 28%;

@@ -12,8 +12,8 @@ android {
         // One phone, Android 12+: lets audio routing use setCommunicationDevice only.
         minSdk = 31
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         // One phone. Each extra ABI is another 10 MB of libvosk, so the
         // emulator's is only added when asked for: ./gradlew assembleDebug -Pemulator

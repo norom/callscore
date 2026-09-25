@@ -39,12 +39,12 @@ test("which way round the board is survives a reload", () => {
   assert.equal(createStore(fakeStorage()).load().swapped, false);
 });
 
-test("changing ends automatically is on unless switched off", () => {
+test("changing ends automatically is off unless switched on", () => {
   const storage = fakeStorage();
-  assert.equal(createStore(storage).load().autoEnds, true);
-
-  createStore(storage).saveAutoEnds(false);
   assert.equal(createStore(storage).load().autoEnds, false);
+
+  createStore(storage).saveAutoEnds(true);
+  assert.equal(createStore(storage).load().autoEnds, true);
 });
 
 test("a fresh store has team A serving first", () => {
